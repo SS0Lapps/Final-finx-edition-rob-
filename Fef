@@ -1,0 +1,1142 @@
+-- ═══════════════════════════════════════════════════════════
+--   🖥️ E1s Console v4.0 — FINAL EDITION
+--   No Sandbox | Global Binding | All Features
+-- ═══════════════════════════════════════════════════════════
+
+if _G.E1sHub and _G.E1sHub.Window then
+    pcall(function() _G.E1sHub.Window:Destroy() end)
+end
+_G.E1sHub = nil
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
+local Stats = game:GetService("Stats")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local CONSOLE_ID = "E1s-" .. HttpService:GenerateGUID(false):gsub("-", ""):sub(1, 16)
+local AUTH_KEY = "E1S-" .. HttpService:GenerateGUID(false):gsub("-", ""):sub(1, 8):upper()
+local VERSION = "4.0"
+local COMPAT_ID = "E1sConsole-v4.0"
+
+for _, c in ipairs(PlayerGui:GetChildren()) do
+    if c:IsA("ScreenGui") and c.Name:sub(1, 3) == "E1s" then
+        pcall(function() c:Destroy() end)
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  Loading Screen
+-- ═══════════════════════════════════════════════════════════
+local LoadGui = Instance.new("ScreenGui")
+LoadGui.Name = "E1s_Load"
+LoadGui.ResetOnSpawn = false
+LoadGui.DisplayOrder = 9999999
+LoadGui.IgnoreGuiInset = true
+LoadGui.Parent = PlayerGui
+
+local LBg = Instance.new("Frame")
+LBg.Size = UDim2.new(1, 0, 1, 0)
+LBg.BackgroundColor3 = Color3.fromRGB(5, 5, 12)
+LBg.BorderSizePixel = 0
+LBg.Parent = LoadGui
+
+local LTitle = Instance.new("TextLabel")
+LTitle.Size = UDim2.new(1, 0, 0, 40)
+LTitle.Position = UDim2.new(0, 0, 0.5, -60)
+LTitle.BackgroundTransparency = 1
+LTitle.Text = "🖥️ E1s Console v" .. VERSION
+LTitle.TextColor3 = Color3.fromRGB(0, 200, 255)
+LTitle.Font = Enum.Font.GothamBold
+LTitle.TextSize = 28
+LTitle.Parent = LBg
+
+local LId = Instance.new("TextLabel")
+LId.Size = UDim2.new(1, 0, 0, 20)
+LId.Position = UDim2.new(0, 0, 0.5, -20)
+LId.BackgroundTransparency = 1
+LId.Text = "ID: " .. CONSOLE_ID .. " | Auth: " .. AUTH_KEY
+LId.TextColor3 = Color3.fromRGB(100, 180, 220)
+LId.Font = Enum.Font.Code
+LId.TextSize = 12
+LId.Parent = LBg
+
+local LStatus = Instance.new("TextLabel")
+LStatus.Size = UDim2.new(1, 0, 0, 24)
+LStatus.Position = UDim2.new(0, 0, 0.5, 15)
+LStatus.BackgroundTransparency = 1
+LStatus.Text = "تهيئة..."
+LStatus.TextColor3 = Color3.fromRGB(200, 200, 210)
+LStatus.Font = Enum.Font.Gotham
+LStatus.TextSize = 14
+LStatus.Parent = LBg
+
+local function setStatus(txt, color)
+    LStatus.Text = txt
+    if color then LStatus.TextColor3 = color end
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  Load WindUI
+-- ═══════════════════════════════════════════════════════════
+setStatus("تحميل WindUI...", nil)
+local windUI = nil
+local ok, result = pcall(function()
+    return loadstring(game:HttpGet(
+        "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua", true
+    ))()
+end)
+
+if ok and result then
+    windUI = result
+else
+    task.wait(0.3)
+    local ok2, r2 = pcall(function()
+        return loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"
+        ))()
+    end)
+    if ok2 then windUI = r2 end
+end
+
+if not windUI then
+    setStatus("❌ فشل تحميل WindUI!", Color3.fromRGB(255, 100, 100))
+    task.wait(3)
+    LoadGui:Destroy()
+    return
+end
+
+setStatus("إنشاء الواجهة...", nil)
+
+-- ═══════════════════════════════════════════════════════════
+--  Hub Object
+-- ═══════════════════════════════════════════════════════════
+local Hub = {
+    Loaded = true,
+    Version = VERSION,
+    UniqueId = CONSOLE_ID,
+    CompatId = COMPAT_ID,
+    AuthKey = AUTH_KEY,
+    StartTime = os.time(),
+    WindUI = windUI,
+    Window = nil,
+    Extensions = {},
+    ExtById = {},
+    ExtNameSet = {},
+    ExtCount = 0,
+    Tabs = {},
+    Logs = {},
+    Notifications = {},
+    URLs = {},
+    ExtSources = {},
+    Protected = true,
+}
+_G.E1sHub = Hub
+
+-- ═══════════════════════════════════════════════════════════
+--  Utils (تُعرّف قبل Window لضمان توفرها)
+-- ═══════════════════════════════════════════════════════════
+function Hub.log(type, msg)
+    local entry = string.format("[%s] [%s] %s", os.date("%H:%M:%S"), type, msg)
+    table.insert(Hub.Logs, 1, entry)
+    if #Hub.Logs > 200 then table.remove(Hub.Logs) end
+    print("[E1s] " .. entry)
+end
+
+function Hub.notify(text, dur)
+    text = tostring(text)
+    table.insert(Hub.Notifications, 1, {
+        time = os.date("%H:%M:%S"),
+        text = text,
+    })
+    if #Hub.Notifications > 200 then table.remove(Hub.Notifications) end
+    
+    local lower = text:lower()
+    if lower:find("خطأ") or lower:find("❌") or lower:find("error") or lower:find("فشل") then
+        Hub.log("ERR", text)
+    end
+    
+    pcall(function()
+        windUI:Notify({ Title = "🖥️ Console", Content = text, Duration = dur or 2 })
+    end)
+end
+
+function Hub.copy(text, label)
+    if setclipboard then
+        setclipboard(text)
+        Hub.notify("✅ " .. (label or "تم النسخ"), 2)
+    else
+        Hub.notify("❌ setclipboard غير متاح", 2)
+    end
+end
+
+function Hub.jsonEncode(data)
+    local ok, r = pcall(function() return HttpService:JSONEncode(data) end)
+    return ok and r or tostring(data)
+end
+
+local notify = Hub.notify
+local copy = Hub.copy
+
+-- ═══════════════════════════════════════════════════════════
+--  Create Window
+-- ═══════════════════════════════════════════════════════════
+local windowOk, windowResult = pcall(function()
+    return windUI:CreateWindow({
+        Title = "🖥️ E1s Console v" .. VERSION,
+        Author = "ID: " .. CONSOLE_ID .. " | Auth: " .. AUTH_KEY,
+        Folder = "E1sConsole",
+        Icon = "terminal",
+        Theme = "Dark",
+        Size = UDim2.fromOffset(950, 640),
+        Transparent = false,
+    })
+end)
+
+if not windowOk or not windowResult then
+    setStatus("❌ فشل إنشاء الواجهة!", Color3.fromRGB(255, 100, 100))
+    task.wait(3)
+    LoadGui:Destroy()
+    return
+end
+
+Hub.Window = windowResult
+
+-- ═══════════════════════════════════════════════════════════
+--  Tab Manager
+-- ═══════════════════════════════════════════════════════════
+function Hub.GetTab(name, icon)
+    if Hub.Tabs[name] then return Hub.Tabs[name] end
+    local tab = Hub.Window:Tab({ Title = name, Icon = icon or "circle" })
+    Hub.Tabs[name] = tab
+    return tab
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  ID Generator
+-- ═══════════════════════════════════════════════════════════
+local function generateExtId(name)
+    local guid = HttpService:GenerateGUID(false):gsub("-", ""):sub(1, 12)
+    return "E1s-" .. guid .. "-" .. #name
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  Register
+-- ═══════════════════════════════════════════════════════════
+function Hub.Register(info)
+    info = info or {}
+    local name = info.name or ("Ext_" .. os.time())
+    local extId = info.id or generateExtId(name)
+    
+    if Hub.ExtById[extId] then
+        notify("⚠️ ID مكرر", 2)
+        return false, "duplicate_id"
+    end
+    if Hub.ExtNameSet[name] then
+        notify("⚠️ الاسم مكرر: " .. name, 2)
+        return false, "duplicate_name"
+    end
+    
+    Hub.ExtCount = Hub.ExtCount + 1
+    info.id = extId
+    info.index = Hub.ExtCount
+    info.time = os.date("%H:%M:%S")
+    
+    table.insert(Hub.Extensions, info)
+    Hub.ExtById[extId] = info
+    Hub.ExtNameSet[name] = true
+    Hub.log("REG", name .. " v" .. (info.version or "1.0"))
+    
+    if Hub.RefreshExtList then pcall(Hub.RefreshExtList) end
+    notify("✅ " .. name .. " v" .. (info.version or "1.0"), 3)
+    return true, extId
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  Run — Direct Environment (No Sandbox)
+-- ═══════════════════════════════════════════════════════════
+function Hub.Run(code, extName, extInfo)
+    if not code or code == "" then
+        notify("❌ الكود فارغ", 2)
+        return false
+    end
+    
+    extName = extName or ("Ext_" .. os.time())
+    extInfo = extInfo or {}
+    extInfo.name = extInfo.name or extName
+    
+    local extId = extInfo.id or generateExtId(extName)
+    
+    local fn, err = loadstring(code, "=E1sExt_" .. extId)
+    if not fn then
+        notify("❌ خطأ: " .. tostring(err):sub(1, 60), 3)
+        Hub.log("ERR", "Load: " .. tostring(err):sub(1, 50))
+        return false, err
+    end
+    
+    -- استخدم getgenv مباشرة (بدون sandbox)
+    local env = getgenv and getgenv() or _G
+    if setfenv then
+        pcall(function() setfenv(fn, env) end)
+    end
+    
+    local ok, result = pcall(fn)
+    
+    if ok then
+        -- دعم init()
+        if type(result) == "table" and type(result.init) == "function" then
+            local initOk, initErr = pcall(result.init)
+            if not initOk then
+                Hub.log("INITERR", tostring(initErr):sub(1, 80))
+            end
+        end
+        
+        -- سجل المصدر
+        Hub.ExtSources[extId] = {
+            name = extName,
+            code = code,
+            version = extInfo.version or "1.0",
+        }
+        
+        local reg = Hub.Register({
+            name = extName,
+            version = extInfo.version or "1.0",
+            description = extInfo.description or "",
+        })
+        return reg
+    else
+        notify("❌ فشل: " .. tostring(result):sub(1, 60), 3)
+        Hub.log("ERR", "Run: " .. tostring(result):sub(1, 50))
+        print("[E1s FULL ERROR] " .. tostring(result))
+        return false, result
+    end
+end
+
+function Hub.RunURL(url, extName)
+    if not url or url == "" then
+        notify("❌ الرابط فارغ", 2)
+        return false
+    end
+    
+    Hub.log("URL", "Fetching: " .. url:sub(1, 60))
+    notify("🌐 جاري التحميل...", 2)
+    
+    local ok, code = pcall(function() return game:HttpGet(url, true) end)
+    if not ok or not code or #code < 10 then
+        notify("❌ فشل التحميل", 3)
+        Hub.log("ERR", "URL fetch failed")
+        return false
+    end
+    
+    table.insert(Hub.URLs, 1, string.format("[%s] %s", os.date("%H:%M:%S"), url:sub(1, 80)))
+    if #Hub.URLs > 50 then table.remove(Hub.URLs) end
+    
+    Hub.log("URL", "Loaded " .. #code .. " bytes")
+    return Hub.Run(code, extName or ("URL_" .. os.date("%H%M%S")))
+end
+
+function Hub.Remove(extId)
+    if not Hub.ExtById[extId] then return false end
+    local e = Hub.ExtById[extId]
+    Hub.ExtById[extId] = nil
+    Hub.ExtNameSet[e.name] = nil
+    Hub.ExtSources[extId] = nil
+    for i, x in ipairs(Hub.Extensions) do
+        if x.id == extId then table.remove(Hub.Extensions, i); break end
+    end
+    Hub.ExtCount = Hub.ExtCount - 1
+    Hub.log("DEL", e.name)
+    if Hub.RefreshExtList then Hub.RefreshExtList() end
+    notify("🗑️ حُذف: " .. e.name, 2)
+    return true
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  🔗 Global Binding — الأهم!
+-- ═══════════════════════════════════════════════════════════
+local GENV = getgenv and getgenv() or _G
+
+GENV.Hub = Hub
+GENV.Core = Hub
+GENV.Console = Hub
+GENV.E1sHub = Hub
+GENV.notify = Hub.notify
+GENV.copy = Hub.copy
+GENV.log = Hub.log
+GENV.jsonEncode = Hub.jsonEncode
+GENV.WindUI = windUI
+GENV.Window = Hub.Window
+GENV.GetTab = Hub.GetTab
+GENV.AuthKey = AUTH_KEY
+GENV.ConsoleId = CONSOLE_ID
+
+GENV.Players = Players
+GENV.LocalPlayer = LocalPlayer
+GENV.PlayerGui = PlayerGui
+GENV.ReplicatedStorage = ReplicatedStorage
+GENV.RunService = RunService
+GENV.UserInputService = UserInputService
+GENV.TweenService = TweenService
+GENV.HttpService = HttpService
+GENV.MarketplaceService = MarketplaceService
+
+Hub.log("GLOBAL", "Bound Hub, notify, copy, WindUI to getgenv")
+
+-- ═══════════════════════════════════════════════════════════
+--  Tabs
+-- ═══════════════════════════════════════════════════════════
+local ExecTab = Hub.GetTab("المنفذ", "terminal")
+local URLTab = Hub.GetTab("مكتبات", "link")
+local LogTab = Hub.GetTab("السجل", "file-text")
+local NotifTab = Hub.GetTab("إشعارات", "bell")
+local DevTab = Hub.GetTab("تطوير", "code")
+local ExportTab = Hub.GetTab("تصدير", "download")
+local GenTab = Hub.GetTab("مولّد", "wand")
+local ListTab = Hub.GetTab("الإضافات", "list")
+local InfoTab = Hub.GetTab("معلومات", "info")
+
+-- ═══════════════════════════════════════════════════════════
+--  Executor Tab
+-- ═══════════════════════════════════════════════════════════
+local ExecSec = ExecTab:Section({ Title = "💻 تشغيل إضافة" })
+
+ExecSec:Paragraph({
+    Title = "🖥️ E1s Console v" .. VERSION,
+    Desc = "ID: " .. CONSOLE_ID .. "\nAuth: " .. AUTH_KEY,
+})
+
+local InName = ExecSec:Input({ Title = "🏷️ اسم الإضافة", Placeholder = "My Ext", Default = "" })
+local InVer = ExecSec:Input({ Title = "📌 الإصدار", Placeholder = "1.0", Default = "1.0" })
+local InCode = ExecSec:Input({ Title = "📝 الكود", Placeholder = "الصق الكود هنا...", Default = "" })
+
+ExecSec:Button({
+    Title = "▶️ تشغيل الإضافة",
+    Desc = "ينفذ الكود مباشرة (بدون sandbox)",
+    Callback = function()
+        local name = InName.Value
+        local ver = InVer.Value
+        local code = InCode.Value
+        
+        if not code or code == "" or #code < 5 then
+            notify("❌ الكود قصير", 2)
+            return
+        end
+        if name == "" then name = "Ext_" .. os.time() end
+        if ver == "" then ver = "1.0" end
+        
+        Hub.Run(code, name, { version = ver })
+    end,
+})
+
+ExecSec:Button({
+    Title = "🌐 تشغيل من URL",
+    Desc = "الصق الرابط في حقل الكود",
+    Callback = function()
+        local url = InCode.Value
+        local name = InName.Value
+        if not url:match("^https?://") then
+            notify("❌ رابط غير صالح", 2)
+            return
+        end
+        if name == "" then name = "URL_" .. os.date("%H%M%S") end
+        Hub.RunURL(url, name)
+    end,
+})
+
+ExecSec:Button({
+    Title = "🧹 مسح الحقول",
+    Callback = function()
+        InName:SetValue("")
+        InVer:SetValue("1.0")
+        InCode:SetValue("")
+        notify("🧹 تم", 1)
+    end,
+})
+
+ExecSec:Button({
+    Title = "📋 نسخ قالب إضافة",
+    Callback = function()
+        local tpl = 'return {\n    name = "My Ext",\n    version = "1.0",\n    init = function()\n        local T = Hub.GetTab("تبويب", "star")\n        local S = T:Section({Title = "قسم"})\n        S:Button({\n            Title = "زر",\n            Callback = function()\n                notify("مرحبا!", 2)\n            end,\n        })\n    end,\n}\n'
+        copy(tpl, "قالب")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  Libraries Tab (URL Loader)
+-- ═══════════════════════════════════════════════════════════
+local URLCurSec = URLTab:Section({ Title = "🔗 تحميل مكتبة" })
+
+local URLInput = URLCurSec:Input({
+    Title = "🔗 الرابط",
+    Placeholder = "https://example.com/library.lua",
+    Default = "",
+})
+
+local URLNameInput = URLCurSec:Input({
+    Title = "🏷️ الاسم",
+    Placeholder = "Library Name",
+    Default = "",
+})
+
+URLCurSec:Button({
+    Title = "▶️ تحميل وتشغيل",
+    Callback = function()
+        local url = URLInput.Value
+        local name = URLNameInput.Value
+        if url == "" or not url:match("^https?://") then
+            notify("❌ رابط غير صالح", 2)
+            return
+        end
+        if name == "" then name = "Lib_" .. os.date("%H%M%S") end
+        Hub.RunURL(url, name)
+    end,
+})
+
+URLCurSec:Button({
+    Title = "🌐 فحص الحجم",
+    Callback = function()
+        local url = URLInput.Value
+        if url == "" then notify("❌ املأ الرابط", 2); return end
+        task.spawn(function()
+            local ok, code = pcall(function() return game:HttpGet(url, true) end)
+            if ok and code then
+                notify("📄 الحجم: " .. #code .. " حرف", 3)
+            else
+                notify("❌ فشل", 2)
+            end
+        end)
+    end,
+})
+
+local LibSec = URLTab:Section({ Title = "📚 مكتبات جاهزة" })
+
+LibSec:Button({ Title = "🎨 Rayfield UI", Callback = function()
+    Hub.RunURL("https://sirius.menu/rayfield", "Rayfield UI")
+end })
+
+LibSec:Button({ Title = "🎨 Kavo UI", Callback = function()
+    Hub.RunURL("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua", "Kavo UI")
+end })
+
+LibSec:Button({ Title = "🎨 Fluent UI", Callback = function()
+    Hub.RunURL("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Init.lua", "Fluent UI")
+end })
+
+LibSec:Button({ Title = "🎨 WindUI", Callback = function()
+    Hub.RunURL("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua", "WindUI")
+end })
+
+LibSec:Button({ Title = "🎨 Orion UI", Callback = function()
+    Hub.RunURL("https://raw.githubusercontent.com/Qanuir/orion-ui/main/src/init.lua", "Orion UI")
+end })
+
+-- ═══════════════════════════════════════════════════════════
+--  Logs Tab
+-- ═══════════════════════════════════════════════════════════
+local LogSec = LogTab:Section({ Title = "📜 سجل الأحداث" })
+
+local LogDisplay = LogSec:Paragraph({ Title = "📋 آخر 20", Desc = "لا يوجد" })
+
+local function refreshLogs()
+    local lines = {}
+    for i = 1, math.min(#Hub.Logs, 20) do
+        table.insert(lines, Hub.Logs[i])
+    end
+    LogDisplay:SetDesc(#lines > 0 and table.concat(lines, "\n") or "لا يوجد")
+end
+
+LogSec:Button({ Title = "🔄 تحديث", Callback = refreshLogs })
+
+LogSec:Button({
+    Title = "📋 نسخ السجل",
+    Callback = function()
+        if #Hub.Logs == 0 then notify("❌ فارغ", 2); return end
+        copy(table.concat(Hub.Logs, "\n"), #Hub.Logs .. " حدث")
+    end,
+})
+
+LogSec:Button({
+    Title = "🗑️ مسح",
+    Callback = function()
+        Hub.Logs = {}
+        LogDisplay:SetDesc("تم المسح")
+    end,
+})
+
+LogSec:Button({
+    Title = "🔁 تحديث تلقائي",
+    Callback = function()
+        task.spawn(function()
+            for _ = 1, 100 do
+                pcall(refreshLogs)
+                task.wait(2)
+            end
+        end)
+        notify("🔁 شغال", 2)
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  Notifications Tab
+-- ═══════════════════════════════════════════════════════════
+local NotifSec = NotifTab:Section({ Title = "📢 سجل الإشعارات" })
+
+local NotifDisplay = NotifSec:Paragraph({ Title = "📋 آخر 15", Desc = "لا يوجد" })
+
+local function refreshNotifs()
+    local lines = {}
+    for i = 1, math.min(#Hub.Notifications, 15) do
+        local n = Hub.Notifications[i]
+        table.insert(lines, "[" .. n.time .. "] " .. n.text)
+    end
+    NotifDisplay:SetDesc(#lines > 0 and table.concat(lines, "\n") or "لا يوجد")
+end
+
+NotifSec:Button({ Title = "🔄 تحديث", Callback = refreshNotifs })
+
+NotifSec:Button({
+    Title = "🔴 نسخ آخر خطأ",
+    Callback = function()
+        local found = nil
+        for _, n in ipairs(Hub.Notifications) do
+            local lower = n.text:lower()
+            if lower:find("خطأ") or lower:find("❌")
+            or lower:find("error") or lower:find("فشل") then
+                found = n
+                break
+            end
+        end
+        if not found then
+            notify("❌ لا يوجد أخطاء", 2)
+            return
+        end
+        if setclipboard then
+            setclipboard(found.text)
+            notify("✅ نسخ الخطأ — اقرأ الـ console", 3)
+            print("[E1s ERROR] " .. found.text)
+        end
+    end,
+})
+
+NotifSec:Button({
+    Title = "🔴 نسخ كل الأخطاء",
+    Callback = function()
+        local lines = {"-- E1s Errors", "-- Console: " .. CONSOLE_ID, ""}
+        local c = 0
+        for _, n in ipairs(Hub.Notifications) do
+            local lower = n.text:lower()
+            if lower:find("خطأ") or lower:find("❌")
+            or lower:find("error") or lower:find("فشل") then
+                table.insert(lines, "[" .. n.time .. "] " .. n.text)
+                c = c + 1
+            end
+        end
+        if c == 0 then notify("❌ لا يوجد", 2); return end
+        if setclipboard then
+            setclipboard(table.concat(lines, "\n"))
+            notify("✅ نسخ " .. c .. " خطأ", 3)
+        end
+    end,
+})
+
+NotifSec:Button({
+    Title = "📋 نسخ كل الإشعارات",
+    Callback = function()
+        if #Hub.Notifications == 0 then notify("❌ فارغ", 2); return end
+        local lines = {"-- E1s Notifications", ""}
+        for _, n in ipairs(Hub.Notifications) do
+            table.insert(lines, "[" .. n.time .. "] " .. n.text)
+        end
+        copy(table.concat(lines, "\n"), #Hub.Notifications .. " إشعار")
+    end,
+})
+
+NotifSec:Button({
+    Title = "🗑️ مسح",
+    Callback = function()
+        Hub.Notifications = {}
+        NotifDisplay:SetDesc("تم المسح")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  Dev Tools Tab
+-- ═══════════════════════════════════════════════════════════
+local DevSec = DevTab:Section({ Title = "⚡ أدوات تطوير" })
+
+DevSec:Button({
+    Title = "🧪 اختبار البيئة",
+    Callback = function()
+        notify("✅ notify شغال!", 3)
+        Hub.log("TEST", "Callback executed")
+        print("[E1s Test] LocalPlayer: " .. LocalPlayer.Name)
+    end,
+})
+
+DevSec:Button({
+    Title = "📊 معلومات الأداء",
+    Callback = function()
+        local mem = Stats:GetTotalMemoryUsageMb()
+        local ping = 0
+        pcall(function()
+            ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+        end)
+        local lines = {
+            "─── Performance ───",
+            "💾 Memory: " .. string.format("%.0f MB", mem),
+            "📡 Ping: " .. string.format("%.0f ms", ping),
+            "👥 Players: " .. #Players:GetPlayers(),
+            "📦 Extensions: " .. Hub.ExtCount,
+            "⏱️ Uptime: " .. (os.time() - Hub.StartTime) .. "s",
+        }
+        notify("📊 " .. string.format("%.0f MB", mem), 3)
+        copy(table.concat(lines, "\n"), "أداء")
+    end,
+})
+
+DevSec:Button({
+    Title = "🔄 تحديث Globals",
+    Desc = "يعيد ربط كل الدوال في getgenv",
+    Callback = function()
+        local g = getgenv and getgenv() or _G
+        g.Hub = Hub
+        g.Core = Hub
+        g.Console = Hub
+        g.notify = Hub.notify
+        g.copy = Hub.copy
+        g.log = Hub.log
+        g.GetTab = Hub.GetTab
+        g.WindUI = windUI
+        g.Window = Hub.Window
+        notify("✅ Globals محدثة", 2)
+    end,
+})
+
+DevSec:Button({
+    Title = "📋 نسخ كل الأخطاء (Console)",
+    Callback = function()
+        local lines = {}
+        for _, l in ipairs(Hub.Logs) do
+            if l:find("%[ERR%]") or l:find("%[INITERR%]") then
+                table.insert(lines, l)
+            end
+        end
+        if #lines == 0 then notify("❌ لا يوجد", 2); return end
+        copy(table.concat(lines, "\n"), #lines .. " خطأ")
+    end,
+})
+
+DevSec:Button({
+    Title = "🎨 تغيير الثيم",
+    Callback = function()
+        local themes = {"Dark", "Light", "Rose", "Pro"}
+        Hub._themeIdx = (Hub._themeIdx or 0) % #themes + 1
+        local t = themes[Hub._themeIdx]
+        pcall(function() windUI:SetTheme(t) end)
+        notify("🎨 " .. t, 2)
+    end,
+})
+
+DevSec:Button({
+    Title = "🔐 نسخ Auth Key",
+    Callback = function() copy(AUTH_KEY, "Auth Key") end,
+})
+
+DevSec:Button({
+    Title = "📸 نسخ حالة الكونسول",
+    Callback = function()
+        local lines = {
+            "─── Console State ───",
+            "ID: " .. CONSOLE_ID,
+            "Version: v" .. VERSION,
+            "Auth: " .. AUTH_KEY,
+            "Extensions: " .. Hub.ExtCount,
+            "Logs: " .. #Hub.Logs,
+            "Notifications: " .. #Hub.Notifications,
+            "Uptime: " .. (os.time() - Hub.StartTime) .. "s",
+            "Executor: " .. (identifyexecutor and identifyexecutor() or "?"),
+            "PlaceId: " .. tostring(game.PlaceId),
+        }
+        copy(table.concat(lines, "\n"), "حالة")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  Export Tab
+-- ═══════════════════════════════════════════════════════════
+local ExpSec = ExportTab:Section({ Title = "📦 نسخ السكربت الكامل" })
+
+ExpSec:Paragraph({
+    Title = "💾 تصدير",
+    Desc = "ينسخ الكونسول + الإضافات في ملف واحد",
+})
+
+ExpSec:Button({
+    Title = "💾 نسخ السكربت الكامل",
+    Callback = function()
+        task.spawn(function()
+            notify("⏳ جاري التجميع...", 2)
+            
+            local bundle = {}
+            table.insert(bundle, "-- ═══════════════════════════════════════════════")
+            table.insert(bundle, "-- 🖥️ E1s Console Bundle")
+            table.insert(bundle, "-- Console ID: " .. CONSOLE_ID)
+            table.insert(bundle, "-- Version: v" .. VERSION)
+            table.insert(bundle, "-- Date: " .. os.date("%Y-%m-%d %H:%M:%S"))
+            table.insert(bundle, "-- Extensions: " .. Hub.ExtCount)
+            table.insert(bundle, "-- ═══════════════════════════════════════════════")
+            table.insert(bundle, "")
+            
+            for _, e in ipairs(Hub.Extensions) do
+                local src = Hub.ExtSources[e.id]
+                if src and src.code then
+                    table.insert(bundle, "-- ═══ #" .. e.index .. " " .. e.name .. " ═══")
+                    table.insert(bundle, "local SRC_" .. e.index .. " = [==[")
+                    table.insert(bundle, src.code)
+                    table.insert(bundle, "]==]")
+                    table.insert(bundle, "")
+                    table.insert(bundle, string.format("Hub.Run(SRC_%d, %q, {version = %q})",
+                        e.index, e.name, e.version or "1.0"))
+                    table.insert(bundle, "")
+                end
+            end
+            
+            table.insert(bundle, "-- ═══ END ═══")
+            copy(table.concat(bundle, "\n"), "سكربت كامل")
+        end)
+    end,
+})
+
+ExpSec:Button({
+    Title = "📋 نسخ الأكواد فقط",
+    Callback = function()
+        local lines = {"-- Extensions Only", ""}
+        for _, e in ipairs(Hub.Extensions) do
+            local src = Hub.ExtSources[e.id]
+            if src and src.code then
+                table.insert(lines, "-- #" .. e.index .. " " .. e.name)
+                table.insert(lines, "local SRC_" .. e.index .. " = [==[")
+                table.insert(lines, src.code)
+                table.insert(lines, "]==]")
+                table.insert(lines, "Hub.Run(SRC_" .. e.index .. ", " .. string.format("%q", e.name) .. ")")
+                table.insert(lines, "")
+            end
+        end
+        copy(table.concat(lines, "\n"), #Hub.Extensions .. " إضافة")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  Generator Tab
+-- ═══════════════════════════════════════════════════════════
+local GenSec = GenTab:Section({ Title = "🎯 مولّد سكربت للريموت" })
+
+local GenPath = GenSec:Input({
+    Title = "📡 مسار الريموت",
+    Placeholder = "ReplicatedStorage.Remotes.Example",
+    Default = "",
+})
+
+local GenName = GenSec:Input({
+    Title = "🏷️ الاسم المخصص",
+    Placeholder = "My Remote Script",
+    Default = "",
+})
+
+local GenArgs = GenSec:Input({
+    Title = "📝 Args افتراضية",
+    Placeholder = "1, 'text', true",
+    Default = "",
+})
+
+local function buildRemoteScript(path, name, args)
+    local L = {}
+    local function w(s) table.insert(L, s) end
+    
+    w("-- ═══════════════════════════════════════════════")
+    w("-- 🎯 " .. name .. " — Remote Script")
+    w("-- Remote: " .. path)
+    w("-- Generated: " .. os.date("%Y-%m-%d %H:%M:%S"))
+    w("-- ═══════════════════════════════════════════════")
+    w("")
+    w('local Players = game:GetService("Players")')
+    w("local LocalPlayer = Players.LocalPlayer")
+    w("")
+    w("local windUI = loadstring(game:HttpGet(")
+    w('    "https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"')
+    w("))()")
+    w("")
+    w("local Window = windUI:CreateWindow({")
+    w('    Title = "🎯 ' .. name .. '",')
+    w('    Author = "E1s Remote Script",')
+    w('    Folder = "E1sRemoteScripts",')
+    w('    Icon = "crosshair",')
+    w('    Theme = "Dark",')
+    w("    Size = UDim2.fromOffset(500, 450),")
+    w("})")
+    w("")
+    w('local MainTab = Window:Tab({ Title = "الرئيسية", Icon = "zap" })')
+    w('local MainSec = MainTab:Section({ Title = "🚀 إطلاق" })')
+    w("")
+    w("MainSec:Paragraph({")
+    w('    Title = "' .. name .. '",')
+    w('    Desc = "Remote: ' .. path .. '",')
+    w("})")
+    w("")
+    w("local ArgsInput = MainSec:Input({")
+    w('    Title = "📝 Args (فاصلة)",')
+    w('    Placeholder = "1, \'text\', true",')
+    w(string.format("    Default = %q,", args or ""))
+    w("})")
+    w("")
+    w("local function getRemote()")
+    w("    local parts = {}")
+    w(string.format("    for p in string.gmatch(%q, \"[^.]+\") do", path))
+    w("        table.insert(parts, p)")
+    w("    end")
+    w("    local obj = game")
+    w("    for _, p in ipairs(parts) do")
+    w("        obj = obj:FindFirstChild(p)")
+    w("        if not obj then return nil end")
+    w("    end")
+    w("    return obj")
+    w("end")
+    w("")
+    w("local function parseArgs(str)")
+    w("    local a = {}")
+    w("    if not str or str == \"\" then return a end")
+    w("    for arg in string.gmatch(str, \"([^,]+)\") do")
+    w("        arg = arg:match(\"^%s*(.-)%s*$\")")
+    w("        local n = tonumber(arg)")
+    w("        if n then table.insert(a, n)")
+    w("        elseif arg == \"true\" then table.insert(a, true)")
+    w("        elseif arg == \"false\" then table.insert(a, false)")
+    w("        else table.insert(a, arg)")
+    w("        end")
+    w("    end")
+    w("    return a")
+    w("end")
+    w("")
+    w("local function fireRemote()")
+    w("    local remote = getRemote()")
+    w("    if not remote then")
+    w('        windUI:Notify({ Title = "❌", Content = "الريموت غير موجود", Duration = 2 })')
+    w("        return")
+    w("    end")
+    w("    local a = parseArgs(ArgsInput.Value)")
+    w("    local ok, err = pcall(function()")
+    w('        if remote:IsA("RemoteEvent") then')
+    w("            remote:FireServer(unpack(a))")
+    w("        else")
+    w("            remote:InvokeServer(unpack(a))")
+    w("        end")
+    w("    end)")
+    w("    if ok then")
+    w(string.format("        windUI:Notify({ Title = \"✅ %s\", Content = \"تم\", Duration = 2 })", name))
+    w("    else")
+    w('        windUI:Notify({ Title = "❌ فشل", Content = tostring(err):sub(1, 50), Duration = 3 })')
+    w("    end")
+    w("end")
+    w("")
+    w("MainSec:Button({")
+    w(string.format("    Title = \"🚀 إطلاق %s\",", name))
+    w("    Callback = fireRemote,")
+    w("})")
+    w("")
+    w("MainSec:Button({")
+    w('    Title = "🚀 إطلاق ×5",')
+    w("    Callback = function()")
+    w("        for i = 1, 5 do fireRemote(); task.wait(0.1) end")
+    w("    end,")
+    w("})")
+    w("")
+    w("MainSec:Button({")
+    w('    Title = "🚀 إطلاق ×20 (Spam)",')
+    w("    Callback = function()")
+    w("        task.spawn(function()")
+    w("            for i = 1, 20 do fireRemote(); task.wait(0.08) end")
+    w("        end)")
+    w("    end,")
+    w("})")
+    w("")
+    w("local loopOn = false")
+    w("MainSec:Toggle({")
+    w('    Title = "🔁 تلقائي",')
+    w("    Default = false,")
+    w("    Callback = function(v)")
+    w("        loopOn = v")
+    w("        if v then")
+    w("            task.spawn(function()")
+    w("                while loopOn do fireRemote(); task.wait(0.5) end")
+    w("            end)")
+    w("        end")
+    w("    end,")
+    w("})")
+    w("")
+    w('local InfoTab = Window:Tab({ Title = "معلومات", Icon = "info" })')
+    w('local InfoSec = InfoTab:Section({ Title = "📋 التفاصيل" })')
+    w("")
+    w("InfoSec:Paragraph({")
+    w('    Title = "📡 المسار",')
+    w(string.format("    Desc = %q,", path))
+    w("})")
+    w("")
+    w("InfoSec:Button({")
+    w('    Title = "📋 نسخ المسار",')
+    w("    Callback = function()")
+    w(string.format("        setclipboard(%q)", path))
+    w("        windUI:Notify({ Title = \"✅\", Content = \"تم النسخ\", Duration = 2 })")
+    w("    end,")
+    w("})")
+    w("")
+    w("windUI:Notify({")
+    w(string.format("    Title = \"🎯 %s\",", name))
+    w('    Content = "السكربت جاهز",')
+    w("    Duration = 3,")
+    w("})")
+    
+    return table.concat(L, "\n")
+end
+
+GenSec:Button({
+    Title = "🎯 توليد سكربت",
+    Callback = function()
+        local path = GenPath.Value
+        local name = GenName.Value
+        if path == "" then notify("❌ املأ المسار", 2); return end
+        if name == "" then name = path:match("[^%.]+$") or "Remote" end
+        local script = buildRemoteScript(path, name, GenArgs.Value)
+        copy(script, "سكربت " .. name)
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  List Tab
+-- ═══════════════════════════════════════════════════════════
+local ListSec = ListTab:Section({ Title = "📦 الإضافات" })
+local ListDisplay = ListSec:Paragraph({ Title = "📊 القائمة", Desc = "لا يوجد" })
+
+function Hub.RefreshExtList()
+    local lines = {
+        "🖥️ Console ID: " .. CONSOLE_ID,
+        "⏱️ Uptime: " .. (os.time() - Hub.StartTime) .. "s",
+        "",
+        "─── الإضافات (" .. Hub.ExtCount .. ") ───",
+    }
+    for _, e in ipairs(Hub.Extensions) do
+        table.insert(lines, "#" .. e.index .. " " .. e.name .. " v" .. (e.version or "1.0"))
+        table.insert(lines, "   🆔 " .. e.id)
+    end
+    if Hub.ExtCount == 0 then table.insert(lines, "لا يوجد") end
+    ListDisplay:SetDesc(table.concat(lines, "\n"))
+end
+Hub.RefreshExtList()
+
+ListSec:Button({ Title = "🔄 تحديث", Callback = Hub.RefreshExtList })
+
+ListSec:Button({
+    Title = "📋 نسخ القائمة",
+    Callback = function()
+        local lines = {"-- Extensions", "Console: " .. CONSOLE_ID, ""}
+        for _, e in ipairs(Hub.Extensions) do
+            table.insert(lines, e.name .. " v" .. (e.version or "1.0") .. " | " .. e.id)
+        end
+        copy(table.concat(lines, "\n"), Hub.ExtCount .. " إضافة")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  Info Tab
+-- ═══════════════════════════════════════════════════════════
+local InfoSec = InfoTab:Section({ Title = "ℹ️ معلومات" })
+
+InfoSec:Paragraph({
+    Title = "🖥️ E1s Console v" .. VERSION,
+    Desc = "ID: " .. CONSOLE_ID ..
+           "\nAuth: " .. AUTH_KEY ..
+           "\nExecutor: " .. (identifyexecutor and identifyexecutor() or "Unknown") ..
+           "\nPlaceId: " .. tostring(game.PlaceId),
+})
+
+InfoSec:Button({
+    Title = "📋 نسخ معلومات الكونسول",
+    Callback = function()
+        local lines = {
+            "-- E1s Console --",
+            "Version: v" .. VERSION,
+            "ID: " .. CONSOLE_ID,
+            "Auth: " .. AUTH_KEY,
+            "Extensions: " .. Hub.ExtCount,
+            "Uptime: " .. (os.time() - Hub.StartTime) .. "s",
+            "Executor: " .. (identifyexecutor and identifyexecutor() or "?"),
+        }
+        copy(table.concat(lines, "\n"), "معلومات")
+    end,
+})
+
+InfoSec:Button({
+    Title = "📱 TikTok",
+    Callback = function() copy("https://www.tiktok.com/@e1s.s0", "@e1s.s0") end,
+})
+
+InfoSec:Button({
+    Title = "🧹 حذف كل واجهات E1s",
+    Callback = function()
+        local c = 0
+        for _, gui in ipairs(PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Name:sub(1, 3) == "E1s" then
+                pcall(function() gui:Destroy() end)
+                c = c + 1
+            end
+        end
+        notify("🧹 " .. c .. " واجهة", 2)
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  Global APIs
+-- ═══════════════════════════════════════════════════════════
+GENV.E1sRun = Hub.Run
+GENV.E1sRunURL = Hub.RunURL
+GENV.E1sList = function() return Hub.Extensions end
+GENV.E1sRemove = Hub.Remove
+GENV.E1sId = CONSOLE_ID
+GENV.E1sAuth = AUTH_KEY
+GENV.E1sLog = Hub.log
+
+function Hub.Show()
+    pcall(function() Hub.Window:Toggle() end)
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  Done
+-- ═══════════════════════════════════════════════════════════
+LoadGui:Destroy()
+
+task.wait(0.3)
+notify("🖥️ Console v" .. VERSION .. " جاهز!", 3)
+notify("🆔 " .. CONSOLE_ID, 5)
+notify("✅ Globals في getgenv جاهزة", 5)
+
+Hub.log("BOOT", "Console v" .. VERSION .. " ready")
+
+print("═══════════════════════════════════════════════")
+print("  ✅ E1s Console v" .. VERSION .. " READY")
+print("  🆔 ID: " .. CONSOLE_ID)
+print("  🔐 Auth: " .. AUTH_KEY)
+print("  ─────────────────────────────────────────")
+print("  Tabs: المنفذ | مكتبات | السجل | إشعارات")
+print("        تطوير | تصدير | مولّد | الإضافات | معلومات")
+print("  ─────────────────────────────────────────")
+print("  Globals (getgenv):")
+print("    Hub, notify, copy, log, GetTab")
+print("    WindUI, Window, Players, LocalPlayer")
+print("  ─────────────────────────────────────────")
+print("  APIs:")
+print("    E1sRun, E1sRunURL, E1sList, E1sRemove")
+print("═══════════════════════════════════════════════")
