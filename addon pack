@@ -1,0 +1,891 @@
+-- ═══════════════════════════════════════════════════════════
+--   🧠 E1s Intelligence Pack v2 — Full Extraction
+--   صور + فيديو + أصوات + أنيميشن + مسارات + كوكيز + فولدرات
+-- ═══════════════════════════════════════════════════════════
+
+if not Hub then
+    warn("[IntelPack] شغّل Console v4.0 أولاً")
+    return
+end
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ═══════════════════════════════════════════════════════════
+--  🗃️ مخزن البيانات
+-- ═══════════════════════════════════════════════════════════
+Hub.Intel = Hub.Intel or {}
+Hub.Intel.Images = {}
+Hub.Intel.Videos = {}
+Hub.Intel.Sounds = {}
+Hub.Intel.Animations = {}
+Hub.Intel.Meshes = {}
+Hub.Intel.Paths = {}
+Hub.Intel.Folders = {}
+Hub.Intel.Files = {}
+Hub.Intel.Remotes = {}
+Hub.Intel.Scripts = {}
+Hub.Intel.Cookies = {}
+Hub.Intel.URLs = {}
+Hub.Intel.Keys = {}
+Hub.Intel.Configs = {}
+Hub.Intel.Protected = {}
+Hub.Intel.AntiCheat = {}
+
+-- ═══════════════════════════════════════════════════════════
+--  🔍 محرك الفحص الشامل
+-- ═══════════════════════════════════════════════════════════
+local scanning = false
+
+local function fullScan()
+    if scanning then
+        Hub.notify("⚠️ الفحص شغال بالفعل", 2)
+        return
+    end
+    scanning = true
+    Hub.notify("🔍 بدء الفحص الشامل...", 3)
+    
+    -- Reset
+    for k, v in pairs(Hub.Intel) do
+        if type(v) == "table" then
+            Hub.Intel[k] = {}
+        end
+    end
+    
+    task.spawn(function()
+        local queue = {
+            {ReplicatedStorage, 0, "ReplicatedStorage"},
+            {workspace, 0, "workspace"},
+            {PlayerGui, 0, "PlayerGui"},
+            {game:GetService("StarterGui"), 0, "StarterGui"},
+            {game:GetService("StarterPack"), 0, "StarterPack"},
+            {game:GetService("Lighting"), 0, "Lighting"},
+            {game:GetService("SoundService"), 0, "SoundService"},
+            {game:GetService("Chat"), 0, "Chat"},
+        }
+        
+        local processed = 0
+        local total = 0
+        
+        while #queue > 0 do
+            local item = table.remove(queue, 1)
+            local container, depth, path = item[1], item[2], item[3]
+            
+            if depth <= 6 then
+                local ok, children = pcall(function() return container:GetChildren() end)
+                if ok then
+                    for _, obj in ipairs(children) do
+                        processed = processed + 1
+                        total = total + 1
+                        
+                        -- إراحة كل 25 كائن
+                        if processed % 25 == 0 then task.wait() end
+                        
+                        local ok2, cls = pcall(function() return obj.ClassName end)
+                        if not ok2 then continue end
+                        
+                        local objPath = path .. "." .. obj.Name
+                        
+                        -- ═══ تصنيف الكائن ═══
+                        
+                        -- 1) صور
+                        if cls == "ImageLabel" or cls == "ImageButton" then
+                            pcall(function()
+                                if obj.Image and obj.Image ~= "" then
+                                    local id = obj.Image:match("(%d+)")
+                                    table.insert(Hub.Intel.Images, {
+                                        name = obj.Name, id = obj.Image, assetId = id, path = objPath
+                                    })
+                                end
+                            end)
+                        elseif cls == "Decal" or cls == "Texture" then
+                            pcall(function()
+                                if obj.Texture and obj.Texture ~= "" then
+                                    local id = obj.Texture:match("(%d+)")
+                                    table.insert(Hub.Intel.Images, {
+                                        name = obj.Name, id = obj.Texture, assetId = id, path = objPath
+                                    })
+                                end
+                            end)
+                        elseif cls == "Sky" then
+                            pcall(function()
+                                for _, key in ipairs({"SkyboxBk", "SkyboxDn", "SkyboxFt", "SkyboxLf", "SkyboxRt", "SkyboxUp"}) do
+                                    if obj[key] and obj[key] ~= "" then
+                                        table.insert(Hub.Intel.Images, {
+                                            name = obj.Name .. "_" .. key,
+                                            id = obj[key],
+                                            assetId = obj[key]:match("(%d+)"),
+                                            path = objPath .. "." .. key
+                                        })
+                                    end
+                                end
+                            end)
+                        end
+                        
+                        -- 2) فيديو
+                        if cls == "VideoFrame" or cls == "VideoPlayer" then
+                            pcall(function()
+                                if obj.Video and obj.Video ~= "" then
+                                    table.insert(Hub.Intel.Videos, {
+                                        name = obj.Name, id = obj.Video,
+                                        assetId = obj.Video:match("(%d+)"), path = objPath
+                                    })
+                                end
+                            end)
+                        end
+                        
+                        -- 3) أصوات
+                        if cls == "Sound" then
+                            pcall(function()
+                                if obj.SoundId and obj.SoundId ~= "" then
+                                    table.insert(Hub.Intel.Sounds, {
+                                        name = obj.Name, id = obj.SoundId,
+                                        assetId = obj.SoundId:match("(%d+)"),
+                                        volume = obj.Volume, pitch = obj.PlaybackSpeed,
+                                        looped = obj.Looped, path = objPath
+                                    })
+                                end
+                            end)
+                        end
+                        
+                        -- 4) أنيميشن
+                        if cls == "Animation" then
+                            pcall(function()
+                                if obj.AnimationId and obj.AnimationId ~= "" then
+                                    table.insert(Hub.Intel.Animations, {
+                                        name = obj.Name, id = obj.AnimationId,
+                                        assetId = obj.AnimationId:match("(%d+)"), path = objPath
+                                    })
+                                end
+                            end)
+                        end
+                        
+                        -- 5) Meshes
+                        if cls == "SpecialMesh" or cls == "MeshPart" or cls == "CylinderMesh" then
+                            pcall(function()
+                                if obj.MeshId and obj.MeshId ~= "" then
+                                    table.insert(Hub.Intel.Meshes, {
+                                        name = obj.Name, id = obj.MeshId,
+                                        assetId = obj.MeshId:match("(%d+)"), path = objPath
+                                    })
+                                end
+                            end)
+                        end
+                        
+                        -- 6) ريموتات
+                        if cls == "RemoteEvent" or cls == "RemoteFunction" then
+                            table.insert(Hub.Intel.Remotes, {
+                                name = obj.Name, class = cls, path = objPath
+                            })
+                        end
+                        
+                        -- 7) سكربتات
+                        if cls == "LocalScript" or cls == "Script" or cls == "ModuleScript" then
+                            table.insert(Hub.Intel.Scripts, {
+                                name = obj.Name, class = cls, path = objPath,
+                                hasSource = pcall(function() return obj.Source and #obj.Source > 0 end)
+                            })
+                        end
+                        
+                        -- 8) فولدرات
+                        if cls == "Folder" then
+                            table.insert(Hub.Intel.Folders, {
+                                name = obj.Name, path = objPath
+                            })
+                        end
+                        
+                        -- 9) مسارات كل الكائنات
+                        table.insert(Hub.Intel.Paths, objPath)
+                        
+                        -- 10) أسماء ملفات (Scripts, Modules, Folders, Models)
+                        if cls == "Script" or cls == "LocalScript" or cls == "ModuleScript" 
+                        or cls == "Folder" or cls == "Model" then
+                            table.insert(Hub.Intel.Files, {
+                                name = obj.Name, class = cls, path = objPath
+                            })
+                        end
+                        
+                        -- ═══ التعمق ═══
+                        if cls == "Folder" or cls == "Model" or cls == "Configuration" 
+                        or cls == "Actor" or cls == "Workspace" or cls == "PlayerGui"
+                        or cls == "ScreenGui" or cls == "Frame" or cls == "GuiMain" then
+                            table.insert(queue, {obj, depth + 1, objPath})
+                        end
+                    end
+                end
+            end
+        end
+        
+        scanning = false
+        Hub.notify(string.format("✅ انتهى! %d عنصر تم فحصه", total), 5)
+        print("[E1s Intel] Total: " .. total)
+        print("[E1s Intel] Images: " .. #Hub.Intel.Images)
+        print("[E1s Intel] Videos: " .. #Hub.Intel.Videos)
+        print("[E1s Intel] Sounds: " .. #Hub.Intel.Sounds)
+        print("[E1s Intel] Animations: " .. #Hub.Intel.Animations)
+        print("[E1s Intel] Meshes: " .. #Hub.Intel.Meshes)
+        print("[E1s Intel] Remotes: " .. #Hub.Intel.Remotes)
+        print("[E1s Intel] Scripts: " .. #Hub.Intel.Scripts)
+        print("[E1s Intel] Folders: " .. #Hub.Intel.Folders)
+        print("[E1s Intel] Paths: " .. #Hub.Intel.Paths)
+    end)
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  📡 فحص السورس + الأنماط (Pattern Extractor)
+-- ═══════════════════════════════════════════════════════════
+local function extractPatterns()
+    Hub.notify("🔍 استخراج الأنماط من السورس...", 2)
+    Hub.Intel.URLs = {}
+    Hub.Intel.Keys = {}
+    Hub.Intel.Cookies = {}
+    Hub.Intel.Protected = {}
+    
+    task.spawn(function()
+        local processed = 0
+        for _, s in ipairs(Hub.Intel.Scripts) do
+            processed = processed + 1
+            if processed % 10 == 0 then task.wait() end
+            
+            -- نحتاج الكائن نفسه
+            local parts = {}
+            for p in string.gmatch(s.path, "[^.]+") do table.insert(parts, p) end
+            
+            local obj = game
+            for _, p in ipairs(parts) do
+                obj = obj:FindFirstChild(p)
+                if not obj then break end
+            end
+            
+            if obj then
+                pcall(function()
+                    local src = obj.Source
+                    if not src or #src == 0 then return end
+                    
+                    -- URLs
+                    for url in src:gmatch("https?://[%w%.%-_/:%?&=#@!%+]+") do
+                        if #url < 200 and not table.find(Hub.Intel.URLs, url) then
+                            table.insert(Hub.Intel.URLs, url)
+                        end
+                    end
+                    
+                    -- Discord Webhooks
+                    for wh in src:gmatch("https://discord%.com/api/webhooks/[%d]+/[%w%-_]+") do
+                        if not table.find(Hub.Intel.URLs, wh) then
+                            table.insert(Hub.Intel.URLs, wh)
+                        end
+                    end
+                    
+                    -- Keys / Tokens
+                    for k in src:gmatch("[Kk]ey%s*[=:]%s*[\"']([%w%-_]+)[\"']") do
+                        if #k > 5 and #k < 100 and not table.find(Hub.Intel.Keys, k) then
+                            table.insert(Hub.Intel.Keys, k)
+                        end
+                    end
+                    for t in src:gmatch("[Tt]oken%s*[=:]%s*[\"']([%w%.%-_]+)[\"']") do
+                        if #t > 5 and #t < 200 and not table.find(Hub.Intel.Keys, t) then
+                            table.insert(Hub.Intel.Keys, t)
+                        end
+                    end
+                    
+                    -- Cookies
+                    for c in src:gmatch("_|WARNING:-DO%-NOT%-SHARE%-THIS%-|_[%w%.%-_]+") do
+                        if not table.find(Hub.Intel.Cookies, c) then
+                            table.insert(Hub.Intel.Cookies, c)
+                        end
+                    end
+                    
+                    -- Protected info (أي شيء يبدو محمي)
+                    if src:find("HttpService:GetAsync") or src:find("HttpService:PostAsync") then
+                        table.insert(Hub.Intel.Protected, {
+                            name = s.name, path = s.path, type = "HTTP", 
+                            note = "يستخدم HTTP Requests"
+                        })
+                    end
+                    if src:find("loadstring") then
+                        table.insert(Hub.Intel.Protected, {
+                            name = s.name, path = s.path, type = "loadstring",
+                            note = "يحمّل كود خارجي"
+                        })
+                    end
+                end)
+            end
+        end
+        Hub.notify(string.format("✅ %d URL | %d Key | %d Cookie", 
+            #Hub.Intel.URLs, #Hub.Intel.Keys, #Hub.Intel.Cookies), 4)
+    end)
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  🔬 فحص الحماية
+-- ═══════════════════════════════════════════════════════════
+local function analyzeAntiCheat()
+    Hub.notify("🛡️ تحليل الحماية...", 2)
+    Hub.Intel.AntiCheat = {}
+    
+    local keywords = {
+        "anticheat", "antiexploit", "guard", "shield", "detect", "ban",
+        "kick", "hyperion", "byfron", "sentry", "sniffer", "protection",
+        "tamper", "integrity", "verif", "ac_", "check", "monitor",
+        "report", "punish", "violation", "honeypot", "trap",
+    }
+    
+    task.spawn(function()
+        local containers = {ReplicatedStorage, workspace, PlayerGui}
+        local processed = 0
+        for _, container in ipairs(containers) do
+            local queue = {{container, 0}}
+            while #queue > 0 do
+                local item = table.remove(queue, 1)
+                local c, d = item[1], item[2]
+                if d <= 4 then
+                    local ok, ch = pcall(function() return c:GetChildren() end)
+                    if ok then
+                        for _, o in ipairs(ch) do
+                            processed = processed + 1
+                            if processed % 30 == 0 then task.wait() end
+                            local ln = o.Name:lower()
+                            for _, kw in ipairs(keywords) do
+                                if ln:find(kw) then
+                                    table.insert(Hub.Intel.AntiCheat, {
+                                        name = o.Name, class = o.ClassName,
+                                        path = o:GetFullName(),
+                                    })
+                                    break
+                                end
+                            end
+                            if o:IsA("Folder") or o:IsA("Model") then
+                                table.insert(queue, {o, d + 1})
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        Hub.notify("⚠️ " .. #Hub.Intel.AntiCheat .. " عنصر حماية", 3)
+    end)
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  🍪 Cookie Extractor
+-- ═══════════════════════════════════════════════════════════
+local function extractCookies()
+    Hub.Intel.Cookies = {}
+    Hub.notify("🍪 محاولة استخراج الكوكيز...", 2)
+    
+    local methods = {
+        {name = "getcookie", fn = function() 
+            if getcookie then return getcookie() end 
+        end},
+        {name = "syn.getCookie", fn = function() 
+            if syn and syn.getCookie then return syn.getCookie() end 
+        end},
+        {name = "krnl.getcookie", fn = function() 
+            if krnl and krnl.getcookie then return krnl.getcookie() end 
+        end},
+        {name = "Krnl (alt)", fn = function() 
+            if Krnl and Krnl.getcookie then return Krnl.getcookie() end 
+        end},
+        {name = "httpget (httpbin)", fn = function()
+            if httpget then
+                local ok, r = pcall(function()
+                    return httpget({Url = "https://httpbin.org/cookies"})
+                end)
+                if ok and r then return r.Body end
+            end
+        end},
+        {name = "request (httpbin)", fn = function()
+            local req = request or (syn and syn.request) or http_request
+            if req then
+                local ok, r = pcall(function()
+                    return req({Url = "https://httpbin.org/cookies", Method = "GET"})
+                end)
+                if ok and r then return r.Body end
+            end
+        end},
+    }
+    
+    local found = 0
+    for _, m in ipairs(methods) do
+        local ok, result = pcall(m.fn)
+        if ok and result and tostring(result) ~= "" and #tostring(result) > 5 then
+            table.insert(Hub.Intel.Cookies, {
+                method = m.name,
+                value = tostring(result):sub(1, 500)
+            })
+            found = found + 1
+        end
+    end
+    Hub.notify(string.format("🍪 %d طريقة نجحت", found), 3)
+end
+
+-- ═══════════════════════════════════════════════════════════
+--  🎨 تبويب: الفحص الشامل
+-- ═══════════════════════════════════════════════════════════
+local MainTab = Hub.GetTab("استخبارات", "database")
+local MainSec = MainTab:Section({ Title = "🔬 الفحص الشامل" })
+
+local InfoDisplay = MainSec:Paragraph({
+    Title = "📊 المعلومات",
+    Desc  = "لم يتم الفحص بعد",
+})
+
+MainSec:Button({
+    Title = "🚀 فحص شامل (30-60 ثانية)",
+    Desc  = "كل شيء: صور، أصوات، ريموتات، مسارات، ملفات",
+    Callback = function()
+        fullScan()
+    end,
+})
+
+MainSec:Button({
+    Title = "🔍 فحص الأنماط (URLs + Keys)",
+    Desc  = "من السورس — يحتاج فحص السكربتات أولاً",
+    Callback = function()
+        if #Hub.Intel.Scripts == 0 then
+            Hub.notify("❌ اعمل فحص شامل أولاً", 3)
+            return
+        end
+        extractPatterns()
+    end,
+})
+
+MainSec:Button({
+    Title = "🛡️ فحص الحماية",
+    Callback = function() analyzeAntiCheat() end,
+})
+
+MainSec:Button({
+    Title = "🍪 استخراج الكوكيز",
+    Callback = function() extractCookies() end,
+})
+
+MainSec:Button({
+    Title = "📊 إحصائيات",
+    Callback = function()
+        local stats = string.format(
+            "📷 صور: %d\n🎥 فيديو: %d\n🔊 أصوات: %d\n🎬 أنيميشن: %d\n" ..
+            "🔷 Meshes: %d\n📡 ريموتات: %d\n📜 سكربتات: %d\n📁 فولدرات: %d\n" ..
+            "📄 ملفات: %d\n🛤️ مسارات: %d\n🔗 URLs: %d\n🔑 Keys: %d\n" ..
+            "🍪 كوكيز: %d\n🛡️ حماية: %d",
+            #Hub.Intel.Images, #Hub.Intel.Videos, #Hub.Intel.Sounds, 
+            #Hub.Intel.Animations, #Hub.Intel.Meshes, #Hub.Intel.Remotes,
+            #Hub.Intel.Scripts, #Hub.Intel.Folders, #Hub.Intel.Files,
+            #Hub.Intel.Paths, #Hub.Intel.URLs, #Hub.Intel.Keys,
+            #Hub.Intel.Cookies, #Hub.Intel.AntiCheat)
+        InfoDisplay:SetDesc(stats)
+        Hub.notify("📊 " .. #Hub.Intel.Paths .. " مسار مفحوص", 3)
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  📷 تبويب: الصور + الفيديو
+-- ═══════════════════════════════════════════════════════════
+local MediaTab = Hub.GetTab("صور و فيديو", "image")
+local MediaSec = MediaTab:Section({ Title = "📷 استخراج الميديا" })
+
+MediaSec:Button({
+    Title = "📋 نسخ كل الصور",
+    Callback = function()
+        if #Hub.Intel.Images == 0 then
+            Hub.notify("❌ لا يوجد — اعمل فحص أولاً", 2)
+            return
+        end
+        local lines = {"-- E1s Images | " .. Hub.UniqueId, ""}
+        for _, img in ipairs(Hub.Intel.Images) do
+            table.insert(lines, img.name .. " = " .. img.id)
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.Images .. " صورة")
+    end,
+})
+
+MediaSec:Button({
+    Title = "🔢 نسخ Asset IDs فقط",
+    Callback = function()
+        if #Hub.Intel.Images == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local ids = {}
+        local seen = {}
+        for _, img in ipairs(Hub.Intel.Images) do
+            if img.assetId and not seen[img.assetId] then
+                seen[img.assetId] = true
+                table.insert(ids, img.assetId)
+            end
+        end
+        Hub.copy(table.concat(ids, "\n"), #ids .. " ID")
+    end,
+})
+
+MediaSec:Button({
+    Title = "🎥 نسخ الفيديوهات",
+    Callback = function()
+        if #Hub.Intel.Videos == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local lines = {"-- E1s Videos", ""}
+        for _, v in ipairs(Hub.Intel.Videos) do
+            table.insert(lines, v.name .. " = " .. v.id)
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.Videos .. " فيديو")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  🔊 تبويب: الأصوات والأنيميشن
+-- ═══════════════════════════════════════════════════════════
+local AudioTab = Hub.GetTab("أصوات", "music")
+local AudioSec = AudioTab:Section({ Title = "🔊 الأصوات" })
+
+AudioSec:Button({
+    Title = "📋 نسخ كل الأصوات",
+    Callback = function()
+        if #Hub.Intel.Sounds == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local lines = {"-- E1s Sounds | " .. Hub.UniqueId, ""}
+        for _, s in ipairs(Hub.Intel.Sounds) do
+            table.insert(lines, string.format("%s = %s | Vol:%.1f Pitch:%.1f",
+                s.name, s.id, s.volume, s.pitch))
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.Sounds .. " صوت")
+    end,
+})
+
+AudioSec:Button({
+    Title = "🔢 نسخ Sound IDs فقط",
+    Callback = function()
+        if #Hub.Intel.Sounds == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local ids = {}
+        local seen = {}
+        for _, s in ipairs(Hub.Intel.Sounds) do
+            if s.assetId and not seen[s.assetId] then
+                seen[s.assetId] = true
+                table.insert(ids, s.assetId)
+            end
+        end
+        Hub.copy(table.concat(ids, "\n"), #ids .. " ID")
+    end,
+})
+
+AudioSec:Button({
+    Title = "▶️ تشغيل أول 5 أصوات",
+    Callback = function()
+        if #Hub.Intel.Sounds == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        task.spawn(function()
+            for i = 1, math.min(#Hub.Intel.Sounds, 5) do
+                pcall(function()
+                    local snd = Instance.new("Sound")
+                    snd.SoundId = Hub.Intel.Sounds[i].id
+                    snd.Parent = game:GetService("SoundService")
+                    snd:Play()
+                    task.wait(2)
+                    snd:Destroy()
+                end)
+            end
+        end)
+    end,
+})
+
+-- Animations
+local AnimSec = AudioTab:Section({ Title = "🎬 الأنيميشن" })
+
+AnimSec:Button({
+    Title = "📋 نسخ كل الأنيميشن",
+    Callback = function()
+        if #Hub.Intel.Animations == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local lines = {"-- E1s Animations", ""}
+        for _, a in ipairs(Hub.Intel.Animations) do
+            table.insert(lines, a.name .. " = " .. a.id)
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.Animations .. " أنيميشن")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  📡 تبويب: الريموتات
+-- ═══════════════════════════════════════════════════════════
+local RemTab = Hub.GetTab("ريموتات كاملة", "radio")
+local RemSec = RemTab:Section({ Title = "📡 الريموتات" })
+
+RemSec:Button({
+    Title = "📋 نسخ كل الريموتات",
+    Callback = function()
+        if #Hub.Intel.Remotes == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local lines = {"-- E1s Remotes | " .. Hub.UniqueId, ""}
+        for _, r in ipairs(Hub.Intel.Remotes) do
+            table.insert(lines, r.class .. " | " .. r.path)
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.Remotes .. " ريموت")
+    end,
+})
+
+RemSec:Button({
+    Title = "🎯 إرسال أول ريموت للمولّد",
+    Callback = function()
+        if #Hub.Intel.Remotes == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local first = Hub.Intel.Remotes[1]
+        Hub.notify("📡 أول ريموت: " .. first.name, 3)
+        print("[E1s] First Remote: " .. first.path)
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  📁 تبويب: المسارات والملفات
+-- ═══════════════════════════════════════════════════════════
+local PathTab = Hub.GetTab("مسارات", "folder-tree")
+local PathSec = PathTab:Section({ Title = "🛤️ المسارات" })
+
+PathSec:Button({
+    Title = "📋 نسخ كل المسارات",
+    Callback = function()
+        if #Hub.Intel.Paths == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        Hub.copy(table.concat(Hub.Intel.Paths, "\n"), #Hub.Intel.Paths .. " مسار")
+    end,
+})
+
+PathSec:Button({
+    Title = "📋 نسخ كل الفولدرات",
+    Callback = function()
+        if #Hub.Intel.Folders == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local lines = {}
+        for _, f in ipairs(Hub.Intel.Folders) do
+            table.insert(lines, f.path)
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.Folders .. " فولدر")
+    end,
+})
+
+PathSec:Button({
+    Title = "📋 نسخ كل أسماء الملفات",
+    Callback = function()
+        if #Hub.Intel.Files == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local lines = {}
+        for _, f in ipairs(Hub.Intel.Files) do
+            table.insert(lines, f.class .. " | " .. f.path)
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.Files .. " ملف")
+    end,
+})
+
+PathSec:Button({
+    Title = "📋 نسخ أسماء فقط",
+    Callback = function()
+        if #Hub.Intel.Files == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local names = {}
+        for _, f in ipairs(Hub.Intel.Files) do
+            table.insert(names, f.name)
+        end
+        Hub.copy(table.concat(names, "\n"), #names .. " اسم")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  🔗 تبويب: URLs + Keys + Cookies
+-- ═══════════════════════════════════════════════════════════
+local SecTab = Hub.GetTab("أسرار", "key")
+local SecSec = SecTab:Section({ Title = "🔗 URLs" })
+
+SecSec:Button({
+    Title = "📋 نسخ كل URLs",
+    Callback = function()
+        if #Hub.Intel.URLs == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        Hub.copy(table.concat(Hub.Intel.URLs, "\n"), #Hub.Intel.URLs .. " URL")
+    end,
+})
+
+SecSec:Button({
+    Title = "🪝 نسخ Webhooks فقط",
+    Callback = function()
+        local whs = {}
+        for _, u in ipairs(Hub.Intel.URLs) do
+            if u:find("webhook") then table.insert(whs, u) end
+        end
+        if #whs == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        Hub.copy(table.concat(whs, "\n"), #whs .. " Webhook")
+    end,
+})
+
+local KeySec = SecTab:Section({ Title = "🔑 Keys/Tokens" })
+
+KeySec:Button({
+    Title = "📋 نسخ كل Keys",
+    Callback = function()
+        if #Hub.Intel.Keys == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        Hub.copy(table.concat(Hub.Intel.Keys, "\n"), #Hub.Intel.Keys .. " Key")
+    end,
+})
+
+local CkSec = SecTab:Section({ Title = "🍪 Cookies" })
+
+CkSec:Button({
+    Title = "📋 نسخ الكوكيز",
+    Callback = function()
+        if #Hub.Intel.Cookies == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local lines = {}
+        for _, c in ipairs(Hub.Intel.Cookies) do
+            if type(c) == "table" then
+                table.insert(lines, "-- [" .. (c.method or "?") .. "]")
+                table.insert(lines, c.value)
+            else
+                table.insert(lines, tostring(c))
+            end
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.Cookies .. " كوكي")
+    end,
+})
+
+local AcSec = SecTab:Section({ Title = "🛡️ الحماية" })
+
+AcSec:Button({
+    Title = "📋 نسخ تقرير الحماية",
+    Callback = function()
+        if #Hub.Intel.AntiCheat == 0 then Hub.notify("❌ لا يوجد", 2); return end
+        local lines = {"-- E1s AntiCheat Report | " .. Hub.UniqueId, ""}
+        for _, a in ipairs(Hub.Intel.AntiCheat) do
+            table.insert(lines, a.class .. " | " .. a.path)
+        end
+        Hub.copy(table.concat(lines, "\n"), #Hub.Intel.AntiCheat .. " حماية")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  📦 تبويب: تصدير شامل
+-- ═══════════════════════════════════════════════════════════
+local ExportTab = Hub.GetTab("تصدير استخبارات", "download")
+local ExportSec = ExportTab:Section({ Title = "📦 تصدير كل البيانات" })
+
+ExportSec:Button({
+    Title = "📦 نسخ كل شيء",
+    Desc  = "ملف واحد فيه كل المعلومات",
+    Callback = function()
+        task.spawn(function()
+            Hub.notify("⏳ جاري التجميع...", 2)
+            
+            local L = {}
+            table.insert(L, "-- ═══════════════════════════════════════════════")
+            table.insert(L, "-- 🧠 E1s Intelligence Report")
+            table.insert(L, "-- Console: " .. Hub.UniqueId)
+            table.insert(L, "-- Date: " .. os.date("%Y-%m-%d %H:%M:%S"))
+            table.insert(L, "-- PlaceId: " .. tostring(game.PlaceId))
+            table.insert(L, "-- ═══════════════════════════════════════════════")
+            table.insert(L, "")
+            
+            table.insert(L, "═══ IMAGES (" .. #Hub.Intel.Images .. ") ═══")
+            for _, i in ipairs(Hub.Intel.Images) do
+                table.insert(L, i.name .. " = " .. i.id)
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ VIDEOS (" .. #Hub.Intel.Videos .. ") ═══")
+            for _, v in ipairs(Hub.Intel.Videos) do
+                table.insert(L, v.name .. " = " .. v.id)
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ SOUNDS (" .. #Hub.Intel.Sounds .. ") ═══")
+            for _, s in ipairs(Hub.Intel.Sounds) do
+                table.insert(L, s.name .. " = " .. s.id)
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ ANIMATIONS (" .. #Hub.Intel.Animations .. ") ═══")
+            for _, a in ipairs(Hub.Intel.Animations) do
+                table.insert(L, a.name .. " = " .. a.id)
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ MESHES (" .. #Hub.Intel.Meshes .. ") ═══")
+            for _, m in ipairs(Hub.Intel.Meshes) do
+                table.insert(L, m.name .. " = " .. m.id)
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ REMOTES (" .. #Hub.Intel.Remotes .. ") ═══")
+            for _, r in ipairs(Hub.Intel.Remotes) do
+                table.insert(L, r.class .. " | " .. r.path)
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ SCRIPTS (" .. #Hub.Intel.Scripts .. ") ═══")
+            for _, s in ipairs(Hub.Intel.Scripts) do
+                table.insert(L, s.class .. " | " .. s.path)
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ FOLDERS (" .. #Hub.Intel.Folders .. ") ═══")
+            for _, f in ipairs(Hub.Intel.Folders) do
+                table.insert(L, f.path)
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ URLs (" .. #Hub.Intel.URLs .. ") ═══")
+            for _, u in ipairs(Hub.Intel.URLs) do table.insert(L, u) end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ KEYS (" .. #Hub.Intel.Keys .. ") ═══")
+            for _, k in ipairs(Hub.Intel.Keys) do table.insert(L, k) end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ COOKIES (" .. #Hub.Intel.Cookies .. ") ═══")
+            for _, c in ipairs(Hub.Intel.Cookies) do
+                if type(c) == "table" then
+                    table.insert(L, "-- [" .. (c.method or "?") .. "]")
+                    table.insert(L, c.value)
+                end
+            end
+            table.insert(L, "")
+            
+            table.insert(L, "═══ ANTICHEAT (" .. #Hub.Intel.AntiCheat .. ") ═══")
+            for _, a in ipairs(Hub.Intel.AntiCheat) do
+                table.insert(L, a.class .. " | " .. a.path)
+            end
+            
+            local result = table.concat(L, "\n")
+            Hub.copy(result, "تقرير كامل (" .. #result .. " حرف)")
+        end)
+    end,
+})
+
+ExportSec:Button({
+    Title = "📊 إحصائيات سريعة",
+    Callback = function()
+        local lines = {
+            "-- E1s Quick Stats",
+            "Images: " .. #Hub.Intel.Images,
+            "Videos: " .. #Hub.Intel.Videos,
+            "Sounds: " .. #Hub.Intel.Sounds,
+            "Animations: " .. #Hub.Intel.Animations,
+            "Meshes: " .. #Hub.Intel.Meshes,
+            "Remotes: " .. #Hub.Intel.Remotes,
+            "Scripts: " .. #Hub.Intel.Scripts,
+            "Folders: " .. #Hub.Intel.Folders,
+            "Files: " .. #Hub.Intel.Files,
+            "Paths: " .. #Hub.Intel.Paths,
+            "URLs: " .. #Hub.Intel.URLs,
+            "Keys: " .. #Hub.Intel.Keys,
+            "Cookies: " .. #Hub.Intel.Cookies,
+            "AntiCheat: " .. #Hub.Intel.AntiCheat,
+        }
+        Hub.copy(table.concat(lines, "\n"), "إحصائيات")
+    end,
+})
+
+-- ═══════════════════════════════════════════════════════════
+--  Done
+-- ═══════════════════════════════════════════════════════════
+task.wait(0.3)
+Hub.notify("🧠 Intelligence Pack v2 محمّل!", 3)
+Hub.notify("🔍 تبويبات جديدة: استخبارات، صور، أصوات، ريموتات، مسارات، أسرار، تصدير", 6)
+
+print("═══════════════════════════════════════════")
+print("  🧠 E1s Intelligence Pack v2 Loaded")
+print("  ─────────────────────────────────────────")
+print("  New Tabs:")
+print("    🔬 استخبارات")
+print("    📷 صور و فيديو")
+print("    🔊 أصوات")
+print("    📡 ريموتات كاملة")
+print("    📁 مسارات")
+print("    🔗 أسرار (URLs/Keys/Cookies)")
+print("    📦 تصدير استخبارات")
+print("  ─────────────────────────────────────────")
+print("  Start: تبويب 'استخبارات' → فحص شامل")
+print("═══════════════════════════════════════════")
